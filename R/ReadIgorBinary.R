@@ -66,19 +66,19 @@
 #' @export
 #' @examples
 #' # return a list containing the wave
-#' wavedata=ReadIgorBinary(system.file("igor","version5.ibw",package="IgorR")) 
+#' wavedata=read.ibw(system.file("igor","version5.ibw",package="IgorR")) 
 #' sum(wavedata)
 #' 
 #' # make a list containing the wave's data in the users's environment
-#' wavename=ReadIgorBinary(system.file("igor","version5.ibw",package="IgorR"),MakeWave=TRUE) 
+#' wavename=read.ibw(system.file("igor","version5.ibw",package="IgorR"),MakeWave=TRUE) 
 #' sum(get(wavename))
 #' 
-ReadIgorBinary<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
+read.ibw<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
 		MakeWave=FALSE,HeaderOnly=FALSE){
 	if (is.character(wavefile)) {
-		# NB setting the encoding to "MAC" resolves some problems with utf-8 incompatible chars
+		# NB setting the encoding to "macintosh" resolves some problems with utf-8 incompatible chars
 		# in the mac or windows-1252 encodings
-		wavefile <- file(wavefile, "rb",encoding="MAC")
+		wavefile <- file(wavefile, "rb",encoding="macintosh")
 		on.exit(close(wavefile))
 	}
 	
@@ -118,18 +118,23 @@ ReadIgorBinary<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
 #' function only reads data records (Igor waves and variables) but ignores 
 #' e.g. history, program code etc.
 #' 
+#' IgorPlatform will determine in which encoding text is read (WINDOWS-1252 for
+#' windows and macintosh for macintosh). Unique abbreviations are acceptable.
+#' Defaults to windows on windows, mac otherwise. 
+#' 
 #' @param pxpfile Character vector naming a PXP file or an R \link{connection} 
 #' @param Verbose whether to print information to console during loading (numeric values are also allowed 0=none, 1=basic, 2=all)
 #' @param StructureOnly TODO Only the structure of the pxp file for inspection
+#' @param IgorPlatform OS on which Igor file was saved (windows or macintosh) 
 #' @param regex only read records (e.g. waves) in the pxp file whose names match a \link{regex}
-#' @param ... Optional parameters passed to \link{ReadIgorBinary}
+#' @param ... Optional parameters passed to \link{read.ibw}
 #' @return A list containing all the individual waves or variables in the pxp file
-#' @examples 
-#' r=ReadIgorPackedExperiment(system.file("igor","testexpt.pxp",package="IgorR"))
 #' @author jefferis
 #' @export
-ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,regex,...){
-	require(bitops)
+#' @examples 
+#' r=read.pxp(system.file("igor","testexpt.pxp",package="IgorR"))
+read.pxp<-function(pxpfile,regex,Verbose=FALSE,
+    StructureOnly=FALSE,IgorPlatform=NULL,...){
 	if (is.character(pxpfile)) {
 		# NB setting the encoding to "MAC" resolves some problems with utf-8 incompatible chars
 		# in the mac or windows-1252 encodings
@@ -138,22 +143,29 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 	}
 	filename=summary(pxpfile)$description
 	
-	Verbose=ifelse(Verbose==1,TRUE,Verbose)
-	Verbose=ifelse(Verbose==0,FALSE,Verbose)
-	
+	if(is.logical(Verbose))
+		Verbose=ifelse(Verbose,1,0)
+
 	# Check if this file needs to be byte swapped
 	firstShort=readBin(pxpfile,"integer",1,size=2)
 	firstShort=bitAnd(firstShort,0x7FFF)
 	if (bitAnd(firstShort,0xFF00) != 0) endian="swap"
 	else endian = .Platform$endian
-	
+
+  # default to windows on windows, mac otherwise
+  if(is.null(IgorPlatform))
+	  IgorPlatform=ifelse(.Platform$OS.type=="windows",'windows','macintosh')
+  else
+    IgorPlatform=match.arg(IgorPlatform,choice=c('windows','macintosh'))
+
 	root=list() # we will store data here
 	currentNames="root"
-	recordStartPos=0; fileSize=file.info(filename)$size
+	recordStartPos=0
+	fileSize=file.info(filename)$size
 	while(recordStartPos<fileSize){
 		seek(pxpfile,recordStartPos)
 		ph=.ReadPackedHeader(pxpfile,endian)
-		if(Verbose) cat("recordStartPos =",recordStartPos,",Record type =",ph$recordType,
+		if(Verbose>1) cat("recordStartPos =",recordStartPos,",Record type =",ph$recordType,
 					"of length =",ph$numDataBytes,"\n")
 		
 		recordStartPos=seek(pxpfile)+ph$numDataBytes
@@ -165,15 +177,18 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 			vars=list()
 			if(vh$numSysVars>0) vars$sysVars=readBin(pxpfile,n=vh$numSysVars,size=4,what=numeric(),signed=TRUE,endian=endian)
 			if(vh$numUserVars>0) vars=c(vars,.ReadUserVar(pxpfile,endian,n=vh$numUserVars))
-			if(vh$numUserStrs>0) vars=c(vars,.ReadUserStr(pxpfile,endian,n=vh$numUserStrs),attr(vh,"version"))
-			if(Verbose) print(vh)
-			if(Verbose) print(vars)
+			if(vh$numUserStrs>0) vars=c(vars,
+            .ReadUserStr(pxpfile,endian,n=vh$numUserStrs,IgorPlatform=IgorPlatform),
+            attr(vh,"version"))
+			if(Verbose>1) print(vh)
+			if(Verbose>1) print(vars)
 			el=paste(paste(currentNames,collapse="$"),sep="$","vars")
 			eval(parse(text=paste(el,"<-vars")))
 		} else if (ph$recordType==3){
 			# wave record; verbose made for wave reading if we are passed
 			# Verbose = 2
-			x=.ReadWaveRecord(pxpfile,endian,Verbose=ifelse(Verbose==2,TRUE,FALSE),...)
+			x=.ReadWaveRecord(pxpfile,endian,Verbose=ifelse(Verbose==2,TRUE,FALSE),
+					HeaderOnly=StructureOnly,...)
 			if(!is.null(x)){
 				if(is.null(attr(x,"WaveHeader")$WaveName)) {
 					# assume this is a wave name
@@ -185,7 +200,7 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 				if(missing(regex) || any( grep(regex,el) )){
 					eval(parse(text=paste(el,"<-x")))
 				}
-				if (Verbose) cat("el:",el,"\n")
+				if (Verbose>0) cat("el:",el,"\n")
 			}
 		} else if (ph$recordType==9){
 			# Open Data Folder
@@ -193,7 +208,12 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 		} else if (ph$recordType==10){
 			# Close Data Folder
 			currentNames=currentNames[-length(currentNames)]
-		}		
+		} else if (ph$recordType==20){
+			# Platform info
+      ipi=.ReadPlatformInfo(pxpfile,endian,ph$numDataBytes)
+      if(ipi$platform==1) IgorPlatform='macintosh'
+      else if(ipi$platform==2) IgorPlatform='windows'
+		}
 	}
 	invisible(root)
 }
@@ -245,10 +265,10 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 	else return(iconv(s,from=encoding,to=""))
 }
 
-.readCharsWithEnc<-function(con,nchars,encoding){
+.readCharsWithEnc<-function(con,nchars,encoding,targetenc='utf8'){
 	s=readChar(con,nchars)
 	if(missing(encoding)) return(s)
-	else return(iconv(s,from=encoding,to=""))
+	else return(iconv(s,from=encoding,to=targetenc))
 }
 
 .readIgorDate<-function(con,endian){
@@ -279,6 +299,7 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 # 	kPackedFileRecord,		//  8x7: Contains the data for a procedure file or notebook in a packed form.
 # 	kDataFolderStartRecord,	//  9x8: Marks the start of a new data folder.
 # 	kDataFolderEndRecord	// 10: Marks the end of a data folder.
+#   kPlatformRecord=20		// 20: Info about Igor that wrote experiment. Added for Igor Pro 5.5D.
 # 	
 # 	/*	Igor writes other kinds of records in a packed experiment file, for storing
 # 		things like pictures, page setup records, and miscellaneous settings. The
@@ -312,9 +333,30 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 	#cat("End of Data Folder")
 }
 .ReadWaveRecord<-function(con,endian,Verbose=FALSE,...){	
-	x=ReadIgorBinary(con,Verbose=Verbose,...)
+	x=read.ibw(con,Verbose=Verbose,...)
 	#cat("Wave Record", attr(x,"WaveHeader")$WaveName,"\n")
 	x
+}
+
+#struct PlatformInfo {			// Data written for a record of type kPlatformRecord.
+#	short platform;				// 0=unspecified, 1=Macintosh, 2=Windows.
+#	short architecture;			// 0=invalid, 1=PowerPC, 2=Intel.
+#	double igorVersion;			// e.g., 5.00 for Igor Pro 5.00.
+#	char reserved[256 - 12];	// Reserved. Write as zero.
+#};
+
+.ReadPlatformInfo<-function(con,endian,size){
+  # I didn't find this documented anywhere, but this record can be preceded
+  # by some additional information besides the PlatformInfo struct
+  readBin(con,n=size-256,size=1,what=raw())
+  l=list()
+	l$platform=readBin(con,size=2,what=integer(),signed=TRUE,endian=endian)
+	l$architecture=readBin(con,size=2,what=integer(),signed=TRUE,endian=endian)
+  l$igorVersion=readBin(con,size=8,what=numeric(),endian=endian)
+#  print(l)
+  # skip remaining bytes
+  readBin(con,n=256-12,size=1,what=raw())
+  l
 }
 
 .ReadVarHeader<-function(con,endian){
@@ -364,7 +406,7 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 	l
 }
 
-.ReadUserStr<-function(con,endian,n=1,version=1){
+.ReadUserStr<-function(con,endian,n=1,version=1,IgorPlatform){
 	# typedef struct UserStrVarRec1 {
 	# 	char name[31+1];					// Name of the string variable.
 	# 	short strLen;						// The real size of the following array.
@@ -386,8 +428,7 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 		#print(version)
 		strLen=readBin(con,n=1,size=version*2,what=integer(),endian=endian)
 		#cat("strLen=",strLen,"\n")
-		# FIXME - how do I tell which encoding to use here?
-		x=.readCharsWithEnc(con,strLen,enc="ASCII")
+		x=.readCharsWithEnc(con,strLen,enc=ifelse(IgorPlatform=='windows','WINDOWS-1252','macintosh'))
 		if(varname!=""){
 			el=paste("l",sep="$",varname)
 			eval(parse(text=paste(el,"<-x")))
@@ -420,7 +461,7 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 	myread()
 	# The platform default is utf-8, but some mac or windows-1252 chars are invalid in this
 	# encoding (e.g. mu) so read as mac and convert later to windows=1252
-	defaultEncoding="MAC"
+	defaultEncoding="macintosh"
 	WaveHeader2$WaveName=.readNullTermString(con,18+2,encoding=defaultEncoding)
 	myread(n=2) # Skip 8 bytes
 	WaveHeader2$dataUnits=.readNullTermString(con,3+1,encoding=defaultEncoding)
@@ -443,7 +484,7 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 	# reencode character fields
 	# if(WaveHeader2$platform==1 || (WaveHeader2$platform==0 && endian=="big")){
 	if(WaveHeader2$platform==1 || (WaveHeader2$platform==0)){
-		encoding="MAC"
+		encoding="macintosh"
 	} else {
 		encoding="WINDOWS-1252"
 	}
@@ -551,7 +592,7 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 
 	WaveHeader5$platform=myread(size=1,signed=FALSE)
 	if(WaveHeader5$platform==1 || (WaveHeader5$platform==0 && endian=="big")){
-		encoding="MAC"
+		encoding="macintosh"
 	} else {
 		encoding="WINDOWS-1252"
 	}
@@ -596,8 +637,8 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 		WaveData=readChar(con,nchars)
 		# convert from appropriate text encoding to R default
 		if(WaveHeader5$platform==1 || (WaveHeader5$platform==0 && endian=="big")){
-			if(Verbose) cat("Converting text wave from MAC encoding to R default\n")
-			WaveData=iconv(WaveData,from="MAC",to="")
+			if(Verbose) cat("Converting text wave from macintosh encoding to R default\n")
+			WaveData=iconv(WaveData,from="macintosh",to="")
 		} else {
 			if(Verbose) cat("Converting text wave from WINDOWS-1252 encoding to R default\n")
 			WaveData=iconv(WaveData,from="WINDOWS-1252",to="")
@@ -652,7 +693,7 @@ ReadIgorPackedExperiment<-function(pxpfile,Verbose=FALSE,StructureOnly=FALSE,reg
 	else return (WaveData)		
 }
 
-#' Convert an Igor wave (or list of waves) loaded by ReadIgorBinary into an R time series 
+#' Convert an Igor wave (or list of waves) loaded by read.ibw into an R time series 
 #' 
 #' Where there are multiple waves, they are assumed to be of compatible lengths 
 #' so that they can be joined together by cbind.
@@ -674,7 +715,7 @@ WaveToTimeSeries<-function(WaveData){
 #' Return tsp attribute of igor wave (start, end, frequency)
 #' 
 #' Note that end = (npts-1) * deltat
-#' @param wave Igor wave loaded by ReadIgorBinary or ReadIgorPackedExperiment
+#' @param wave Igor wave loaded by read.ibw or read.pxp
 #' @return numeric vector with elements start, end, frequency
 #' @author jefferis
 #' @seealso \code{tsp}
