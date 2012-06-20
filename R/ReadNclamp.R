@@ -44,21 +44,27 @@ ReadNclampLogTable<-function(f,Verbose=FALSE){
 	d
 }
 
-#' Read all Nclamp log tables from a directory into global list logfiles 
+#' Read all Nclamp log tables from a directory into a list 
 #' @param logfiledir Path to directory containing log files (pxp files) 
 #' @param ... additional parameters for ReadNclampLogTable
-#' @return character vector with names of parsed log files
+#' @return named list containing one dataframe for each parsed log file
 #' @author jefferis
 #' @export
-ReadAllNclampLogTables<-function(logfiledir="/GD/projects/PhysiologyData/logs",...){
-	logfilenames=dir(logfiledir,full=T)
-	assign("logfiles",list(),env=.GlobalEnv)
+#' @examples
+#' \dontrun{
+#' ReadAllNclampLogTables("/GD/projects/PhysiologyData/logs")
+#' str(logfiles)
+#' }
+ReadAllNclampLogTables<-function(logfiledir,...){
+	logfilenames=dir(logfiledir,full.names=T)
+	logfiles=list()
 	for(i in seq(logfilenames)){
 		if(i%%10>0) cat(".") else cat(as.integer(i))
 		cat("logfilenames[i]=",logfilenames[i],"\n")
-		logfiles[[i]]<<-try(ReadNclampLogTable(logfilenames[i]),...)
+		logfiles[[i]]<-try(ReadNclampLogTable(logfilenames[i]),...)
 	}
-	logfilenames
+	names(logfiles)=logfilenames
+  logfiles
 }
 
 .ParseDate<-function(d)
@@ -72,6 +78,7 @@ ReadAllNclampLogTables<-function(logfiledir="/GD/projects/PhysiologyData/logs",.
 }
 
 #' Extract summary information from an Nclamp/Igor Sweep File
+#' 
 #' e.g. for import into Physiology database
 #' @param f path to an Nclamp/Igor pxp format sweep file
 #' @param Verbose print details while parsing underlying pxp file
@@ -95,7 +102,7 @@ SummariseSweepFile<-function(f,Verbose=F){
 	
 	summaryFields=s$vars[chosenFields]
 	listnames=names(s)[sapply(s,class)=="list"]
-	possStimuli=setdiff(listnames, c("vars","Notes",grep("^Chan[A-Z]$",listnames,val=T)))
+	possStimuli=setdiff(listnames, c("vars","Notes",grep("^Chan[A-Z]$",listnames,value=T)))
 	if(length(possStimuli)!=1) stop("unable to identify stimulus protocol")
 	ProtocolName=possStimuli[1]
 	chosenProtocolFields=c("WaveLength","SampleInterval","SamplesPerWave",
@@ -144,7 +151,7 @@ UpdateSweepDataFrame<-function(folder,outfile=NULL,action=c("update","force"),Dr
 	if(is.null(outfile)){
 		outfile=file.path(folder,paste(basename(folder),sep=".","csv"))
 	}
-	infiles=dir(folder,patt="_[0-9]+\\.pxp$",full=T)
+	infiles=dir(folder,pattern="_[0-9]+\\.pxp$",full.names=T)
 	if(!file.exists(outfile)){
 		# we need to process all infiles
 		newinfiles=infiles

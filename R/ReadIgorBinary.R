@@ -92,14 +92,18 @@ read.ibw<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
 	if(Verbose) cat("version = ",version,"endian = ",endian,"\n")
 	
 	if(version==5) {
-		rval=.ReadIgorBinary.V5(wavefile,Verbose=Verbose,endian=endian,ReturnTimeSeries=ReturnTimeSeries,HeaderOnly)
+		rval=.ReadIgorBinary.V5(wavefile,Verbose=Verbose,endian=endian,HeaderOnly=HeaderOnly)
 	} else if(version==2){
-		rval=.ReadIgorBinary.V2(wavefile,Verbose=Verbose,endian=endian,ReturnTimeSeries=ReturnTimeSeries,HeaderOnly)
+		rval=.ReadIgorBinary.V2(wavefile,Verbose=Verbose,endian=endian,HeaderOnly=HeaderOnly)
 	}
 	else stop(paste("Unable to read from Igor Binary File:",summary(wavefile)$description,"with version:",version))
   # Store Igor wave version number
   attr(rval,'BinHeader')$version=version
   
+	if(ReturnTimeSeries){
+		rval=WaveToTimeSeries(rval)
+	}
+	
 	# makes a wave with a specified name in the user environment
 	if(MakeWave){
 		OriginalWaveName=attr(rval,"WaveHeader")$WaveName
@@ -112,7 +116,7 @@ read.ibw<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
 }
 
 #' Reads an Igor Pro Packed Experiment (.pxp) file
-#' 
+#'  
 #' Note that pxp files are only partially documented so some contents
 #' cannot be parsed (e.g. image data). Furthermore for the time being this 
 #' function only reads data records (Igor waves and variables) but ignores 
@@ -120,20 +124,21 @@ read.ibw<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
 #' 
 #' IgorPlatform will determine in which encoding text is read (WINDOWS-1252 for
 #' windows and macintosh for macintosh). Unique abbreviations are acceptable.
-#' Defaults to windows on windows, mac otherwise. 
-#' 
+#' Defaults to windows on windows, mac otherwise.
 #' @param pxpfile Character vector naming a PXP file or an R \link{connection} 
+#' @param regex only read records (e.g. waves) in the pxp file whose names match a \link{regex}
+#' @param ReturnTimeSeries Igor waves are returned as a ts object with  sensible
+#'   x scaling (FALSE by default)
 #' @param Verbose whether to print information to console during loading (numeric values are also allowed 0=none, 1=basic, 2=all)
 #' @param StructureOnly TODO Only the structure of the pxp file for inspection
-#' @param IgorPlatform OS on which Igor file was saved (windows or macintosh) 
-#' @param regex only read records (e.g. waves) in the pxp file whose names match a \link{regex}
+#' @param IgorPlatform OS on which Igor file was saved (windows or macintosh)
 #' @param ... Optional parameters passed to \link{read.ibw}
 #' @return A list containing all the individual waves or variables in the pxp file
 #' @author jefferis
 #' @export
 #' @examples 
 #' r=read.pxp(system.file("igor","testexpt.pxp",package="IgorR"))
-read.pxp<-function(pxpfile,regex,Verbose=FALSE,
+read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
     StructureOnly=FALSE,IgorPlatform=NULL,...){
 	if (is.character(pxpfile)) {
 		# NB setting the encoding to "MAC" resolves some problems with utf-8 incompatible chars
@@ -156,7 +161,7 @@ read.pxp<-function(pxpfile,regex,Verbose=FALSE,
   if(is.null(IgorPlatform))
 	  IgorPlatform=ifelse(.Platform$OS.type=="windows",'windows','macintosh')
   else
-    IgorPlatform=match.arg(IgorPlatform,choice=c('windows','macintosh'))
+    IgorPlatform=match.arg(IgorPlatform,choices=c('windows','macintosh'))
 
 	root=list() # we will store data here
 	currentNames="root"
@@ -188,7 +193,7 @@ read.pxp<-function(pxpfile,regex,Verbose=FALSE,
 			# wave record; verbose made for wave reading if we are passed
 			# Verbose = 2
 			x=.ReadWaveRecord(pxpfile,endian,Verbose=ifelse(Verbose==2,TRUE,FALSE),
-					HeaderOnly=StructureOnly,...)
+					HeaderOnly=StructureOnly,ReturnTimeSeries=ReturnTimeSeries,...)
 			if(!is.null(x)){
 				if(is.null(attr(x,"WaveHeader")$WaveName)) {
 					# assume this is a wave name
@@ -428,7 +433,7 @@ read.pxp<-function(pxpfile,regex,Verbose=FALSE,
 		#print(version)
 		strLen=readBin(con,n=1,size=version*2,what=integer(),endian=endian)
 		#cat("strLen=",strLen,"\n")
-		x=.readCharsWithEnc(con,strLen,enc=ifelse(IgorPlatform=='windows','WINDOWS-1252','macintosh'))
+		x=.readCharsWithEnc(con,strLen,encoding=ifelse(IgorPlatform=='windows','WINDOWS-1252','macintosh'))
 		if(varname!=""){
 			el=paste("l",sep="$",varname)
 			eval(parse(text=paste(el,"<-x")))
@@ -516,10 +521,9 @@ read.pxp<-function(pxpfile,regex,Verbose=FALSE,
 	}
 	attr(WaveData,"WaveHeader")=WaveHeader2
 	attr(WaveData,"BinHeader")=BinHeader2
-	if(ReturnTimeSeries){
-		return(ts(WaveData,start=attr(WaveData,"WaveHeader")$hsB,deltat=attr(WaveData,"WaveHeader")$hsA))
-	}
-	else return (WaveData)
+	attr(WaveData,"start")=attr(WaveData,"WaveHeader")$hsB
+	attr(WaveData,"deltat")=attr(WaveData,"WaveHeader")$hsA
+	WaveData
 }
 
 .ReadIgorBinary.V5<-function(con,Verbose=FALSE,ReturnTimeSeries=NULL,endian=NULL,HeaderOnly=FALSE){
@@ -687,10 +691,7 @@ read.pxp<-function(pxpfile,regex,Verbose=FALSE,
 	if(nDims>1) dim(WaveData)=dims
 	attr(WaveData,"WaveHeader")=WaveHeader5
 	attr(WaveData,"BinHeader")=BinHeader5
-	if(ReturnTimeSeries  ){
-		return(ts(WaveData,start=attr(WaveData,"WaveHeader")$sfB[1],deltat=attr(WaveData,"WaveHeader")$sfA[1]))
-	}
-	else return (WaveData)		
+	return (WaveData)
 }
 
 #' Convert an Igor wave (or list of waves) loaded by read.ibw into an R time series 
@@ -698,18 +699,24 @@ read.pxp<-function(pxpfile,regex,Verbose=FALSE,
 #' Where there are multiple waves, they are assumed to be of compatible lengths 
 #' so that they can be joined together by cbind.
 #' 
-#' @param WaveData, a wave or list of waves  
+#' @param WaveData, a wave or list of waves
+#' @param ReturnOriginalDataOnError If we can't make a time series, return
+#' 	return original data (default TRUE)
 #' @return a time series or multi time series (ts, mts)
 #' @author jefferis
 #' @export
-WaveToTimeSeries<-function(WaveData){
+WaveToTimeSeries<-function(WaveData,ReturnOriginalDataOnError=TRUE){
 	if(is.list(WaveData)) {
 		# process separate waves into multi wave time series
 		l=lapply(WaveData,WaveToTimeSeries)
 		return(do.call(cbind,l))
 	}
   tspw = tsp.igorwave(WaveData)
-  ts(WaveData,start=tspw[1],frequency=tspw[3])
+  res=try(ts(WaveData,start=tspw[1],frequency=tspw[3]),silent=TRUE)
+	if(inherits(res,'try-error')){
+		warning(res)
+		WaveData
+	}	else res
 }
 
 #' Return tsp attribute of igor wave (start, end, frequency)

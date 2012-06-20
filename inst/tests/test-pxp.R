@@ -5,9 +5,9 @@
 
 context("Test handling of Igor pxp files")
 
-pxp<-NULL
+pxp<-read.pxp("../igor/WedJul407c2_001.pxp")
+
 test_that("Read Igor packed experiment file", {
-      pxp<<-read.pxp("../igor/WedJul407c2_001.pxp")
       
       expected_names<-c("vars", "WavSelect", "ChanSelect", "ChanWaveList", "yLabel", 
           "Group", "Set1", "Set2", "SetX", "CT_TimeStamp", "CT_TimeIntvl", 
@@ -77,6 +77,17 @@ test_that("Igor Wave to R time series", {
       
       expect_that(tsp.igorwave(RecordA0),
           is_equivalent_to(tsp(wA0)),'check tsp attributes from wave and time series match')
+    })
+
+test_that("Convert Igor Wave to R time series when reading pxp file", {
+      pxp<-read.pxp("../igor/WedJul407c2_001.pxp",regex='Record',ReturnTimeSeries=TRUE)
+      record_names = paste("Record",
+          rep(c("A","B"),99), rep(0:99,rep(2,100)), sep="")
+			RecordA0<-pxp[['RecordA0']]
+			expect_that(RecordA0,is_a('ts'))
+			# restrict to waves only
+			pxp=pxp[!sapply(pxp,inherits,'list')]
+      expect_that(names(pxp), equals(record_names))
     })
 
 test_that("Read pxp file loading only waves matching regex", {
