@@ -1,8 +1,8 @@
 Package: IgorR
 Type: Package
 Title: Read binary files saved by Igor Pro (including Neuromatic data)
-Version: 0.5-2
-Date: 2012-06-20
+Version: 0.5-3
+Date: 2012-09-19
 Author: Greg Jefferis
 Maintainer: Greg Jefferis <jefferis@gmail.com>
 Description: This package provides function to read data from the Igor
@@ -18,6 +18,6 @@ Suggests: testthat
 License: GPL (>= 2)
 LazyLoad: yes
 Collate: 'ReadIgorBinary.R' 'ReadNclamp.R'
-Packaged: 2012-06-21 07:54:26 UTC; jefferis
+Packaged: 2012-09-19 22:59:21 UTC; jefferis
 Repository: CRAN
-Date/Publication: 2012-06-21 09:29:45
+Date/Publication: 2012-09-20 06:13:35
