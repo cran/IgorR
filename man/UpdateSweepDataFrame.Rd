@@ -2,8 +2,8 @@
 \alias{UpdateSweepDataFrame}
 \title{Update the csv file summarising the sweeps in an Nclamp data folder}
 \usage{
-  UpdateSweepDataFrame(folder, outfile = NULL,
-    action = c("update", "force"), DryRun = FALSE)
+UpdateSweepDataFrame(folder, outfile = NULL, action = c("update", "force"),
+  DryRun = FALSE)
 }
 \arguments{
   \item{folder}{Path to the folder}
@@ -18,13 +18,13 @@
   do nothing}
 }
 \value{
-  TRUE if something happened, FALSE otherwise
+TRUE if something happened, FALSE otherwise
 }
 \description{
-  Update the csv file summarising the sweeps in an Nclamp
-  data folder
+Update the csv file summarising the sweeps in an Nclamp
+data folder
 }
 \author{
-  jefferis
+jefferis
 }
 

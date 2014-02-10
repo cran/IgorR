@@ -45,7 +45,8 @@ ReadNclampLogTable<-function(f,Verbose=FALSE){
 }
 
 #' Read all Nclamp log tables from a directory into a list 
-#' @param logfiledir Path to directory containing log files (pxp files) 
+#' @param logfiledir Path to directory containing log files (pxp files)
+#' @param pattern Optional regular expression - see \code{\link{list.files}}
 #' @param ... additional parameters for ReadNclampLogTable
 #' @return named list containing one dataframe for each parsed log file
 #' @author jefferis
@@ -55,8 +56,8 @@ ReadNclampLogTable<-function(f,Verbose=FALSE){
 #' ReadAllNclampLogTables("/GD/projects/PhysiologyData/logs")
 #' str(logfiles)
 #' }
-ReadAllNclampLogTables<-function(logfiledir,...){
-  logfilenames=dir(logfiledir,full.names=T)
+ReadAllNclampLogTables<-function(logfiledir,pattern="_log[0-9]+[.]pxp$",...){
+  logfilenames=dir(logfiledir,pattern=pattern,full.names=T)
   logfiles=list()
   for(i in seq(logfilenames)){
     if(i%%10>0) cat(".") else cat(as.integer(i))
@@ -85,12 +86,12 @@ ReadAllNclampLogTables<-function(logfiledir,...){
 #' @return a list of about 25 fields summarising the sweep file 
 #' @author jefferis
 #' @export
+#' @import tools
 #' @examples
 #' l=SummariseSweepFile(system.file("igor","WedJul407c2_001.pxp",package="IgorR"))
 #' cat("There are",l$NumWaves,"waves in the file each of total duration",l$StimWaveLength,
 #'  "ms and sample duration",l$StimSampleInterval,"ms \n") 
 SummariseSweepFile<-function(f,Verbose=F){
-  require(tools)
   s=read.pxp(f,Verbose=Verbose)
   
   fileinfo=file.info(f)

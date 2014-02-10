@@ -2,21 +2,21 @@
 \alias{tsp.igorwave}
 \title{Return tsp attribute of igor wave (start, end, frequency)}
 \usage{
-  tsp.igorwave(wave)
+tsp.igorwave(wave)
 }
 \arguments{
   \item{wave}{Igor wave loaded by read.ibw or read.pxp}
 }
 \value{
-  numeric vector with elements start, end, frequency
+numeric vector with elements start, end, frequency
 }
 \description{
-  Note that end = (npts-1) * deltat
+Note that end = (npts-1) * deltat
 }
 \author{
-  jefferis
+jefferis
 }
 \seealso{
-  \code{tsp}
+\code{tsp}
 }
 

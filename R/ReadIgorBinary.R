@@ -116,30 +116,40 @@ read.ibw<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
 }
 
 #' Reads an Igor Pro Packed Experiment (.pxp) file
-#'  
-#' Note that pxp files are only partially documented so some contents
-#' cannot be parsed (e.g. image data). Furthermore for the time being this 
-#' function only reads data records (Igor waves and variables) but ignores 
-#' e.g. history, program code etc.
 #' 
-#' IgorPlatform will determine in which encoding text is read (WINDOWS-1252 for
-#' windows and macintosh for macintosh). Unique abbreviations are acceptable.
-#' Defaults to windows on windows, mac otherwise.
-#' @param pxpfile Character vector naming a PXP file or an R \link{connection} 
-#' @param regex only read records (e.g. waves) in the pxp file whose names match a \link{regex}
+#' Note that pxp files are only partially documented so some contents cannot be 
+#' parsed (e.g. image data). This function currently reads data records (Igor 
+#' waves and variables), history, procedures, recreation macros and plain text
+#' notebooks. Formatted notebooks cannot be read.
+#' 
+#' \code{IgorPlatform} will determine in which encoding text is read 
+#' (WINDOWS-1252 for windows and macintosh for macintosh). Unique abbreviations 
+#' are acceptable. Defaults to "windows" on windows, "macintosh" otherwise. Note
+#' that Igor Pro 5.5 added a PlatformRecord to the pxp file format which is used
+#' to determine the file's platform of origin when available. Since this is 
+#' informatino straight from the horse's mouth it will override the 
+#' \code{IgorPlatform} argument.
+#' @param pxpfile Character vector naming a PXP file or an R \link{connection}
+#' @param regex only read records (e.g. waves) in the pxp file whose names match
+#'   a \link{regex}
 #' @param ReturnTimeSeries Igor waves are returned as a ts object with  sensible
 #'   x scaling (FALSE by default)
-#' @param Verbose whether to print information to console during loading (numeric values are also allowed 0=none, 1=basic, 2=all)
+#' @param Verbose whether to print information to console during loading 
+#'   (numeric values are also allowed 0=none, 1=basic, 2=all)
 #' @param StructureOnly TODO Only the structure of the pxp file for inspection
+#' @param ExtractText Whether to extract procedures, recreation macros, history 
+#'   and plain text notebooks (FALSE by default)
 #' @param IgorPlatform OS on which Igor file was saved (windows or macintosh)
 #' @param ... Optional parameters passed to \link{read.ibw}
-#' @return A list containing all the individual waves or variables in the pxp file
+#' @return A list containing all the individual waves or variables in the pxp 
+#'   file
 #' @author jefferis
 #' @export
+#' @import bitops
 #' @examples 
 #' r=read.pxp(system.file("igor","testexpt.pxp",package="IgorR"))
 read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
-    StructureOnly=FALSE,IgorPlatform=NULL,...){
+    StructureOnly=FALSE,ExtractText=FALSE,IgorPlatform=NULL,...){
   if (is.character(pxpfile)) {
     # NB setting the encoding to "MAC" resolves some problems with utf-8 incompatible chars
     # in the mac or windows-1252 encodings
@@ -162,6 +172,8 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
     IgorPlatform=ifelse(.Platform$OS.type=="windows",'windows','macintosh')
   else
     IgorPlatform=match.arg(IgorPlatform,choices=c('windows','macintosh'))
+
+  encoding = ifelse(IgorPlatform=='windows','WINDOWS-1252','macintosh')
 
   root=list() # we will store data here
   currentNames="root"
@@ -188,7 +200,7 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
       if(Verbose>1) print(vh)
       if(Verbose>1) print(vars)
       el=paste(paste(currentNames,collapse="$"),sep="$","vars")
-      eval(parse(text=paste(el,"<-vars")))
+      eval(parse(text=paste(el,"<-vars"),keep.source=FALSE))
     } else if (ph$recordType==3){
       # wave record; verbose made for wave reading if we are passed
       # Verbose = 2
@@ -203,10 +215,40 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
         }
         # store the record if required
         if(missing(regex) || any( grep(regex,el) )){
-          eval(parse(text=paste(el,"<-x")))
+          eval(parse(text=paste(el,"<-x"),keep.source=FALSE))
         }
         if (Verbose>0) cat("el:",el,"\n")
       }
+    } else if (ph$recordType == 2 && ExtractText){
+        # Experiment History
+        history = .readCharsWithEnc(pxpfile, ph$numDataBytes, encoding)
+        el = paste(paste(currentNames, collapse="$"), sep="$", "history")
+        eval(parse(text=paste(el,"<-history"), keep.source=FALSE))
+        if(Verbose > 1)
+          cat("history: ", substr(history,0,20), " ...\n")
+    } else if (ph$recordType == 4 && ExtractText){
+        # Recreation Macro
+        recmacro = .readCharsWithEnc(pxpfile, ph$numDataBytes, encoding)
+        el = paste(paste(currentNames, collapse="$"), sep="$", "recmacro")
+        eval(parse(text=paste(el,"<-recmacro"), keep.source=FALSE))
+        if(Verbose > 1)
+          cat("recreation macro: ", substr(recmacro,0,20), " ...\n")
+    } else if (ph$recordType == 5 && ExtractText){
+        # Procedure Text
+        mainproc = .readCharsWithEnc(pxpfile, ph$numDataBytes, encoding)
+        el = paste(paste(currentNames, collapse="$"), sep="$", "mainproc")
+        eval(parse(text=paste(el,"<-mainproc"), keep.source=FALSE))
+        if(Verbose > 1)
+          cat("main procedure: ", substr(mainproc,0,20), " ...\n")
+    } else if (ph$recordType == 8 && ExtractText){
+        # packed procedures and notebooks
+        file = .ReadPackedFile(pxpfile, ph$numDataBytes, encoding,  Verbose)
+        if(length(file) > 0){
+          el = paste(paste(currentNames, collapse="$"), sep="$", file$name)
+          eval(parse(text=paste(el,"<-file$data"), keep.source=FALSE))
+          if(Verbose > 1)
+            cat("packed file ", file$name, ": ", substr(file$data,1,20), " ...\n")
+        }
     } else if (ph$recordType==9){
       # Open Data Folder
       currentNames=c(currentNames,.ReadDataFolderStartRecord(pxpfile,endian))
@@ -270,8 +312,8 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
   else return(iconv(s,from=encoding,to=""))
 }
 
-.readCharsWithEnc<-function(con,nchars,encoding,targetenc='utf8'){
-  s=readChar(con,nchars)
+.readCharsWithEnc<-function(con,nchars,encoding,targetenc='UTF-8'){
+  s=readChar(con,nchars,useBytes=TRUE)
   if(missing(encoding)) return(s)
   else return(iconv(s,from=encoding,to=targetenc))
 }
@@ -286,8 +328,10 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
   i
 }
 
+igor_date_origin<-as.numeric(ISOdate(1904,1,1,hour=0,tz=""))
+
 .convertIgorDate<-function(dateval){
-  dateval=dateval+as.numeric(ISOdate(1904,1,1,hour=0,tz=""))
+  dateval=dateval+igor_date_origin
   class(dateval)<-"POSIXct"
   dateval
 }
@@ -314,13 +358,18 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
 #   */
 # };
 
-#' Read the a short record header from the current location in a PXP file
+#' Private functions in IgorR Package
+#' @name IgorR-private
+NULL
+
+#' @title Read the a short record header from the current location in a PXP file
 #' 
 #' Note that the recordType will be one of the constants from Igor's
 #' enum PackedFileRecordType
 #' @param con an R connection to the file we are reading
 #' @param endian either little or big
 #' @return a list containing information about the current record
+#' @rdname IgorR-private
 #' @author jefferis
 .ReadPackedHeader<-function(con,endian){
   recordType=readBin(con,size=2,what=integer(),signed=FALSE,endian=endian)
@@ -341,6 +390,36 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
   x=read.ibw(con,Verbose=Verbose,...)
   #cat("Wave Record", attr(x,"WaveHeader")$WaveName,"\n")
   x
+}
+
+.ReadPackedFile<-function(con, recordSize, encoding, Verbose){
+
+  # discard first header part
+  numBytes   = 32
+  readChar(con, numBytes)
+  recordSize = recordSize - numBytes
+
+  # read the filename
+  file       = list()
+  file$name  = readChar(con, numBytes)
+  recordSize = recordSize - numBytes
+
+  # discard last header part
+  numBytes   = 90
+  readChar(con, numBytes)
+  recordSize = recordSize - numBytes
+
+  file$data  = .readCharsWithEnc(con, recordSize, encoding)
+
+  if(nchar(file$data) <= 1) { # assume it is a formatted notebook with custom binary header
+
+    if(Verbose > 1)
+      cat("Ignoring formatted notebook ", file$name, "\n")
+
+    return(list())
+  }
+
+  return(file)
 }
 
 #struct PlatformInfo {      // Data written for a record of type kPlatformRecord.
@@ -405,8 +484,7 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
       x=x[1]
     }
     readBin(con,n=1,size=4,what=integer(),endian=endian)
-    el=paste("l",sep="$",varname)
-    eval(parse(text=paste(el,"<-x")))
+    l[[varname]]=x
   }
   l
 }
@@ -435,8 +513,7 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
     #cat("strLen=",strLen,"\n")
     x=.readCharsWithEnc(con,strLen,encoding=ifelse(IgorPlatform=='windows','WINDOWS-1252','macintosh'))
     if(varname!=""){
-      el=paste("l",sep="$",varname)
-      eval(parse(text=paste(el,"<-x")))
+      l[[varname]]=x
     }
   }
   l

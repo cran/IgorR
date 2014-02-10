@@ -2,9 +2,8 @@
 \alias{read.ibw}
 \title{Read binary files in the Igor Binary Wave format (IBW)}
 \usage{
-  read.ibw(wavefile, Verbose = FALSE,
-    ReturnTimeSeries = FALSE, MakeWave = FALSE,
-    HeaderOnly = FALSE)
+read.ibw(wavefile, Verbose = FALSE, ReturnTimeSeries = FALSE,
+  MakeWave = FALSE, HeaderOnly = FALSE)
 }
 \arguments{
   \item{wavefile}{Either a character vector containing the
@@ -23,12 +22,12 @@
   Wave}
 }
 \value{
-  returns a vector containing the wave data OR returns the
-  name of a new R vector containing the data which has been
-  made in the user environment
+returns a vector containing the wave data OR returns the
+name of a new R vector containing the data which has been
+made in the user environment
 }
 \description{
-  Read binary files in the Igor Binary Wave format (IBW)
+Read binary files in the Igor Binary Wave format (IBW)
 }
 \examples{
 # return a list containing the wave
@@ -40,6 +39,6 @@ wavename=read.ibw(system.file("igor","version5.ibw",package="IgorR"),MakeWave=TR
 sum(get(wavename))
 }
 \author{
-  jefferis
+jefferis
 }
 
