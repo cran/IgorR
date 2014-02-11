@@ -1,8 +1,8 @@
-d24cb15c61ed4e729e7a1902c6781442 *DESCRIPTION
+e0c1acf12b2370cc32ec5df489f79c3d *DESCRIPTION
 7dbccdc7137d3590f4780795a2d75843 *NAMESPACE
-5414121bc0b52b8739b6e1c429a4abdf *NEWS
+2f4d92c1fa12de0f3709c1bbe0303135 *NEWS
 97255a76e89416389e1e22b82b400c0f *R/IgorR-package.R
-05aa27f6520b7cd203d00698672e1e8f *R/ReadIgorBinary.R
+aaa8269fb2ee56dd5d3e1bee40477fe6 *R/ReadIgorBinary.R
 ecca2ffce790b43cd99c4d7153ba27cc *R/ReadNclamp.R
 a90a5bb40f22f9d9ae66f81a0c60c126 *README.md
 88efeb47207661dc60822829fec0339d *inst/igor/ExperimentWithHigherChars.pxp
@@ -12,7 +12,7 @@ a90a5bb40f22f9d9ae66f81a0c60c126 *README.md
 15e9a8c84cbeeac5edebc33832075c0c *inst/igor/version2.ibw
 ec599190c63576ff8f5e2b6c08136dd3 *inst/igor/version5.ibw
 69787c63dbfbcbe145ab9d0d3d3a8750 *inst/tests/test-ibw.R
-38db805c2bdde769551b410169d85567 *inst/tests/test-pxp.R
+961d0801d02f7564b9e2eb8c6cb8f929 *inst/tests/test-pxp.R
 72b29d52836775fbe8b450219acb9dd0 *man/IgorR-package.Rd
 339e2f4098b585d83e49d15c6653c754 *man/IgorR-private.Rd
 03885946747a80fb3263aae41e41aedf *man/ReadAllNclampLogTables.Rd
