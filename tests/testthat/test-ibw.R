@@ -6,7 +6,7 @@
 context("Verify reading of Igor ibw files")
 
 test_that("Read Igor v5 file", {
-      expect_that (w5<-read.ibw('../igor/version5.ibw'),
+      expect_that (w5<-read.ibw(system.file('igor/version5.ibw', package = 'IgorR')),
           is_a("numeric"),'read igor v5 wave without error')
       expect_that(attr(w5,'BinHeader')$version,
           equals(5))
@@ -16,7 +16,7 @@ test_that("Read Igor v5 file", {
     })
 
 test_that("Read Igor v2 file", {
-      expect_that (w2<-read.ibw('../igor/version2.ibw'),
+      expect_that (w2<-read.ibw(system.file('igor/version2.ibw', package = 'IgorR')),
           is_a("numeric"),'read igor v2 wave without error')
       expect_that(attr(w2,'BinHeader')$version,
           equals(2))
@@ -32,4 +32,8 @@ test_that("Processing of dates", {
   # and this is also what I get on a sunos machine in PDT
   # DISABLED due to OS dependent results that I cannot fix
   # expect_equivalent(.convertIgorDate(3427533421),as.POSIXct("2012-08-11 13:37:01"))
+})
+
+test_that("Processing of funny null terminated strings", {
+  expect_is(bad_string_wave<-read.ibw('igor/bad_null_string.ibw'), 'numeric')
 })

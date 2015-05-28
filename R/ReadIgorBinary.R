@@ -54,14 +54,20 @@
 # 2009-07-09
 # Fixed handling of dates in ReadNclampLogTable
 
-#' Read binary files in the Igor Binary Wave format (IBW) 
-#' @param wavefile Either a character vector containing the path to a file or an R \link{connection} 
-#' @param Verbose Whether to print status information while reading the file
-#' @param ReturnTimeSeries Return as an R time series (package \code{\link{ts}})
-#' @param MakeWave Assign wave to a list in the global user environment
-#' @param HeaderOnly Only return the header of the Igor Wave 
-#' @return returns a vector containing the wave data OR returns the name of a 
-#'  new R vector containing the data which has been made in the user environment
+#' Read binary files in the Igor Binary Wave format (IBW)
+#' 
+#' @param wavefile either a character vector containing the path to a file or an
+#'   R \link{connection}.
+#' @param Verbose if \code{TRUE}, print status information while reading the
+#'   file.
+#' @param ReturnTimeSeries if \code{TRUE}, return as an R time series (package
+#'   \code{\link{ts}}).
+#' @param MakeWave if \code{TRUE}, assign wave to a list in the global user
+#'   environment.
+#' @param HeaderOnly if \code{TRUE}, only return the header of the Igor Wave.
+#' @return A vector containing the wave data or, if \code{MakeWave == TRUE},
+#'   returns the name of a new R vector containing the data which has been made
+#'   in the user environment
 #' @author jefferis
 #' @export
 #' @examples
@@ -72,7 +78,6 @@
 #' # make a list containing the wave's data in the users's environment
 #' wavename=read.ibw(system.file("igor","version5.ibw",package="IgorR"),MakeWave=TRUE) 
 #' sum(get(wavename))
-#' 
 read.ibw<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
     MakeWave=FALSE,HeaderOnly=FALSE){
   if (is.character(wavefile)) {
@@ -117,32 +122,33 @@ read.ibw<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
 
 #' Reads an Igor Pro Packed Experiment (.pxp) file
 #' 
-#' Note that pxp files are only partially documented so some contents cannot be 
+#' Note that PXP files are only partially documented so some contents cannot be 
 #' parsed (e.g. image data). This function currently reads data records (Igor 
-#' waves and variables), history, procedures, recreation macros and plain text
+#' waves and variables), history, procedures, recreation macros and plain text 
 #' notebooks. Formatted notebooks cannot be read.
 #' 
 #' \code{IgorPlatform} will determine in which encoding text is read 
 #' (WINDOWS-1252 for windows and macintosh for macintosh). Unique abbreviations 
-#' are acceptable. Defaults to "windows" on windows, "macintosh" otherwise. Note
-#' that Igor Pro 5.5 added a PlatformRecord to the pxp file format which is used
-#' to determine the file's platform of origin when available. Since this is 
-#' informatino straight from the horse's mouth it will override the 
-#' \code{IgorPlatform} argument.
-#' @param pxpfile Character vector naming a PXP file or an R \link{connection}
-#' @param regex only read records (e.g. waves) in the pxp file whose names match
-#'   a \link{regex}
-#' @param ReturnTimeSeries Igor waves are returned as a ts object with  sensible
-#'   x scaling (FALSE by default)
+#' are acceptable. Defaults to \code{"windows"} on Windows, \code{"macintosh"}
+#' otherwise. Note that Igor Pro 5.5 added a PlatformRecord to the PXP file
+#' format which is used to determine the file's platform of origin when
+#' available. Since this is information straight from the horse's mouth it will
+#' override the \code{IgorPlatform} argument.
+#' @param pxpfile character vector naming a PXP file or an R \link{connection}.
+#' @param regex if \code{TRUE}, only read records (e.g. waves) in the PXP file
+#'   whose names match a \link{regex}.
+#' @param ReturnTimeSeries if \code{TRUE}, Igor waves are returned as a
+#'   \code{link{ts}} object with sensible x scaling (\code{FALSE} by default).
 #' @param Verbose whether to print information to console during loading 
-#'   (numeric values are also allowed 0=none, 1=basic, 2=all)
-#' @param StructureOnly TODO Only the structure of the pxp file for inspection
-#' @param ExtractText Whether to extract procedures, recreation macros, history 
-#'   and plain text notebooks (FALSE by default)
-#' @param IgorPlatform OS on which Igor file was saved (windows or macintosh)
-#' @param ... Optional parameters passed to \link{read.ibw}
-#' @return A list containing all the individual waves or variables in the pxp 
-#'   file
+#'   (numeric values are also allowed 0=none, 1=basic, 2=all).
+#' @param StructureOnly (TODO) if \code{TRUE}, only the structure of the PXP
+#'   file for inspection.
+#' @param ExtractText whether to extract procedures, recreation macros, history 
+#'   and plain text notebooks (\code{FALSE} by default).
+#' @param IgorPlatform OS on which Igor file was saved (windows or macintosh).
+#' @param ... optional parameters passed to \link{read.ibw}.
+#' @return A list containing all the individual waves or variables in the PXP 
+#'   file.
 #' @author jefferis
 #' @export
 #' @import bitops
@@ -207,12 +213,12 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
       x=.ReadWaveRecord(pxpfile,endian,Verbose=ifelse(Verbose==2,TRUE,FALSE),
           HeaderOnly=StructureOnly,ReturnTimeSeries=ReturnTimeSeries,...)
       if(!is.null(x)){
-        if(is.null(attr(x,"WaveHeader")$WaveName)) {
+        wavename=attr(x,"WaveHeader")$WaveName
+        if(is.null(wavename)) {
           # assume this is a wave name
-          el=paste(paste(currentNames,collapse="$"),sep="$",x)
-        } else {
-          el=paste(paste(currentNames,collapse="$"),sep="$",attr(x,"WaveHeader")$WaveName)
+          wavename=x
         }
+        el=paste(paste(currentNames,collapse="$"),sep="$",wavename)
         # store the record if required
         if(missing(regex) || any( grep(regex,el) )){
           eval(.myparse(text=paste(el,"<-x")))
@@ -251,7 +257,9 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
         }
     } else if (ph$recordType==9){
       # Open Data Folder
-      currentNames=c(currentNames,.ReadDataFolderStartRecord(pxpfile,endian))
+      foldername=.ReadDataFolderStartRecord(pxpfile,endian)
+      # backquote protects funny folder names with no effect on valid names
+      currentNames=c(currentNames, sprintf("`%s`", foldername))
     } else if (ph$recordType==10){
       # Close Data Folder
       currentNames=currentNames[-length(currentNames)]
@@ -303,11 +311,11 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
 }
 .readNullTermString<-function(con,totalLength,encoding,...){
   if(totalLength==0) return ("")
-  s=readBin(con,what=character(),n=1,size=1,...)
-  # note totalLength is the length including the null terminator
-  # 2007-10-15 - fixed a bug with reading strings that have 
-  # high bytes after the first null terminator
-  readBin(con,what="integer",size=1,n=totalLength-(nchar(s)+1),...)
+  # first read in exactly the number of raw bytes we've been told
+  # note totalLength is the length including the null terminator (if present)
+  rawc=readBin(con, what='raw', n=totalLength)
+  # then read a string from that - readBin will drop any null terminator
+  s=readBin(rawc, what="character")
   if(missing(encoding)) return(s)
   else return(iconv(s,from=encoding,to=""))
 }

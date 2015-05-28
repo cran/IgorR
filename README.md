@@ -1,6 +1,8 @@
 #IgorR
-
-[![Build Status](https://travis-ci.org/jefferis/IgorR.png)](https://travis-ci.org/jefferis/IgorR)
+[![DOI](https://img.shields.io/badge/doi-10.5281%2Fzenodo.10230-blue.svg)](http://dx.doi.org/10.5281/zenodo.10230) 
+[![Release Version](https://img.shields.io/github/release/jefferis/IgorR.svg)](https://github.com/jefferis/IgorR/releases/latest) 
+[![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/IgorR)](http://cran.r-project.org/web/packages/IgorR) 
+[![Build Status](https://travis-ci.org/jefferis/IgorR.svg?branch=master)](https://travis-ci.org/jefferis/IgorR)
 
 Introduction
 ============
@@ -14,37 +16,47 @@ Standard Install
 ----------------
 Install the release version from [CRAN](http://cran.r-project.org/)
 
-    install.packages('IgorR')
+```r
+install.packages('IgorR')
+```
 
 Github Install
 --------------
 To install the latest development version from github
 
-    install.packages('devtools') # install hadley's devtools
-    library(devtools)
-    install_github('IgorR','jefferis','pub')
+```r
+# install hadley's devtools if required
+if(!require('devtools')) install.packages('devtools')
+devtools::install_github('jefferis/IgorR')
+```
 
 Development Install
 -------------------
-To checkout a version that can be used for development (e.g. with StatET for Eclipse)
+To checkout a version that can be used for development 
+([RStudio](http://www.rstudio.com/products/RStudio/) is strongly recommended), 
+in your terminal application.
 
-    cd /some/suitable/dir
-    git clone https://github.com/jefferis/IgorR.git
-    # git clone jgit:IgorR # or local repository 
+```sh
+cd /some/suitable/dir
+git clone https://github.com/jefferis/IgorR.git
+```
 
 In R
 
-    install.packages('devtools') # install hadley's devtools
-    library(devtools)
-    load_all('/some/suitable/dir/IgorR')
-    test()
-    #hack
-    load_all()
-    
-    # ready for release
-    check()
-    build_win() # test for Windows
-    release()
+```r
+install.packages('devtools') # install hadley's devtools
+library(devtools)
+load_all('/some/suitable/dir/IgorR')
+test()
+
+#hack
+load_all()
+
+# ready for release
+check()
+build_win() # test for Windows
+release()
+```
 
 Details
 =======
