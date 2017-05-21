@@ -2,7 +2,7 @@ Package: IgorR
 Type: Package
 Title: Read Binary Files Saved by 'Igor Pro' (Including 'Neuromatic'
         Data)
-Version: 0.8
+Version: 0.8.1
 Author: Greg Jefferis with contributions from Thomas Braun
 Maintainer: Greg Jefferis <jefferis@gmail.com>
 Description: Provides function to read data from the 'Igor Pro' data analysis
@@ -16,7 +16,8 @@ Imports: bitops, tools
 Suggests: testthat
 License: GPL (>= 2)
 LazyLoad: yes
+RoxygenNote: 6.0.1
 NeedsCompilation: no
-Packaged: 2015-05-28 09:33:00 UTC; jefferis
+Packaged: 2017-05-19 14:12:42 UTC; jefferis
 Repository: CRAN
-Date/Publication: 2015-05-28 12:06:40
+Date/Publication: 2017-05-21 08:29:22 UTC
