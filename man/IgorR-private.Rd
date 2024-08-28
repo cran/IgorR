@@ -16,7 +16,12 @@
 a list containing information about the current record
 }
 \description{
-Private functions in IgorR Package
+\code{.ReadPackedHeader} reads the short record header from the
+  current location in a PXP file
+}
+\details{
+Note that the \code{recordType} will be one of the constants from
+  Igor's enum \code{PackedFileRecordType}
 }
 \author{
 jefferis

@@ -2,7 +2,7 @@
 % Please edit documentation in R/ReadIgorBinary.R
 \name{WaveToTimeSeries}
 \alias{WaveToTimeSeries}
-\title{Convert an Igor wave (or list of waves) loaded by read.ibw into an R time series}
+\title{Convert an Igor wave (wave list) loaded by read.ibw into an R time series}
 \usage{
 WaveToTimeSeries(WaveData, ReturnOriginalDataOnError = TRUE)
 }
@@ -13,12 +13,19 @@ WaveToTimeSeries(WaveData, ReturnOriginalDataOnError = TRUE)
 return original data (default TRUE)}
 }
 \value{
-a time series or multi time series (ts, mts)
+a time series or multi time series (\code{\link[stats]{ts}},
+  \code{mts})
 }
 \description{
-Where there are multiple waves, they are assumed to be of compatible lengths 
-so that they can be joined together by cbind.
+Where there are multiple waves, they are assumed to be of compatible lengths
+so that they can be joined together by \code{cbind}.
+}
+\seealso{
+Other igor-io: 
+\code{\link{read.ibw}()},
+\code{\link{read.pxp}()}
 }
 \author{
 jefferis
 }
+\concept{igor-io}

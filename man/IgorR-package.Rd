@@ -6,16 +6,35 @@
 \alias{IgorR}
 \title{Read binary files saved by Igor Pro (including Neuromatic data)}
 \description{
-This package provides function to read data from the Igor
-Pro data analysis program by Wavemetrics. The data formats
-supported are Igor packed experiment format (pxp) and Igor binary
-wave (ibw). See: http://www.wavemetrics.com/ for details.
+This package provides function to read data from the Igor Pro data analysis
+program by Wavemetrics. The data formats supported are Igor packed experiment
+format (\code{.pxp}) and Igor binary wave (\code{.ibw}). See:
+\url{https://www.wavemetrics.com/} for details.
 }
 \details{
 It also includes some functions to load special pxp files produced by the
-Neuromatic/Nclamp packages for recording and analysing neuronal
-#data. See http://www.neuromatic.thinkrandom.com/ for details.
+Neuromatic/Nclamp packages for recording and analysing neuronal #data. See
+\url{https://github.com/SilverLabUCL/NeuroMatic} for details.
 
-Key functions in the package include \code{\link{read.ibw},\link{read.pxp}}.
+Key functions in the package include \code{\link{read.ibw}},
+\code{\link{read.pxp}}.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/jefferis/IgorR}
+  \item \url{https://jefferis.github.io/IgorR/}
+  \item Report bugs at \url{https://github.com/jefferis/IgorR/issues}
+}
+
+}
+\author{
+\strong{Maintainer}: Gregory Jefferis \email{jefferis@gmail.com} (\href{https://orcid.org/0000-0002-0587-9355}{ORCID})
+
+Other contributors:
+\itemize{
+  \item Thomas Braun [contributor]
+}
+
 }
 \keyword{package}

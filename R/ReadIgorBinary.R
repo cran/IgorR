@@ -78,6 +78,7 @@
 #' # make a list containing the wave's data in the users's environment
 #' wavename=read.ibw(system.file("igor","version5.ibw",package="IgorR"),MakeWave=TRUE) 
 #' sum(get(wavename))
+#' @family igor-io
 read.ibw<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
     MakeWave=FALSE,HeaderOnly=FALSE){
   if (is.character(wavefile)) {
@@ -152,6 +153,7 @@ read.ibw<-function(wavefile,Verbose=FALSE,ReturnTimeSeries=FALSE,
 #' @author jefferis
 #' @export
 #' @import bitops
+#' @family igor-io
 #' @examples 
 #' r=read.pxp(system.file("igor","testexpt.pxp",package="IgorR"))
 read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
@@ -336,12 +338,16 @@ read.pxp<-function(pxpfile,regex,ReturnTimeSeries=FALSE,Verbose=FALSE,
   i
 }
 
-igor_date_origin<-as.numeric(ISOdate(1904,1,1,hour=0,tz=""))
-
-.convertIgorDate<-function(dateval){
-  dateval=dateval+igor_date_origin
-  class(dateval)<-"POSIXct"
-  dateval
+# internal function to convert Igor dates
+# these are expressed in seconds since 1904-01-01 in the local timezone
+# note that we provide a tz argument to ensure that tests give the same
+# results regardless of the local timezone of the test machine
+.convertIgorDate<-function(dateval, tz=""){
+  igor_origin=ISOdatetime(1904,1,1,hour=0,min = 0, sec=0, tz=tz)
+  # this takes care of tz offset differences between the actual date and the origin
+  # e.g. because date is during daylight savings (but origin was not)
+  res=timechange::time_add(igor_origin, second = dateval)
+  res
 }
 
 # enum PackedFileRecordType {
@@ -370,10 +376,10 @@ igor_date_origin<-as.numeric(ISOdate(1904,1,1,hour=0,tz=""))
 #' @name IgorR-private
 NULL
 
-#' @title Read the a short record header from the current location in a PXP file
-#' 
-#' Note that the recordType will be one of the constants from Igor's
-#' enum PackedFileRecordType
+#' @description \code{.ReadPackedHeader} reads the short record header from the
+#'   current location in a PXP file
+#' @details Note that the \code{recordType} will be one of the constants from
+#'   Igor's enum \code{PackedFileRecordType}
 #' @param con an R connection to the file we are reading
 #' @param endian either little or big
 #' @return a list containing information about the current record
@@ -400,24 +406,30 @@ NULL
   x
 }
 
+# private function to read a null terminated string
+.read_nt_string <- function(con, strlen) {
+  rawchars=readBin(con, what=raw(), n = strlen)
+  readBin(rawchars, what = 'character', n = 1)
+}
+
 .ReadPackedFile<-function(con, recordSize, encoding, Verbose){
 
   # discard first header part
   numBytes   = 32
-  readChar(con, numBytes)
+  res=readBin(con, what=raw(), n = numBytes)
   recordSize = recordSize - numBytes
 
   # read the filename
   file       = list()
-  file$name  = readChar(con, numBytes)
+  file$name  = .read_nt_string(con, numBytes)
   recordSize = recordSize - numBytes
 
   # discard last header part
   numBytes   = 90
-  readChar(con, numBytes)
+  readBin(con, what = raw(), n = numBytes)
   recordSize = recordSize - numBytes
 
-  file$data  = .readCharsWithEnc(con, recordSize, encoding)
+  file$data  = suppressWarnings(.readCharsWithEnc(con, recordSize, encoding))
 
   if(nchar(file$data) <= 1) { # assume it is a formatted notebook with custom binary header
 
@@ -761,21 +773,18 @@ if(R.version$major>2) {
     attr(WaveData,"Note")=.readCharsWithEnc(con,BinHeader5$noteSize,encoding)
   }
   
-  if(BinHeader5$dataEUnitsSize>0) {
-    attr(WaveData,"dataUnits")=.readNullTermString(con,BinHeader5$dataEUnitsSize,encoding)
-  }
+  # ignore dataEUnitsSize
+  if(BinHeader5$dataEUnitsSize>0)
+    readBin(con,what=raw(), n = BinHeader5$dataEUnitsSize)
   
-  if(any(BinHeader5$dimEUnitsSize>0)) {
-    x=.readCharsWithEnc(con,BinHeader5$dimEUnitsSize,encoding)
-    attr(WaveData,"dimUnits")[BinHeader5$dimEUnitsSize>0]=x[BinHeader5$dimEUnitsSize>0]
-  }
+  if(any(BinHeader5$dimEUnitsSize>0))
+    readBin(con,what=raw(), n = sum(BinHeader5$dimEUnitsSize))
+  
   # Trim units down to active dimensions
   attr(WaveData,"dimUnits")=attr(WaveData,"dimUnits")[WaveHeader5$nDim>0]
 
-  if(any(BinHeader5$dimLabelsSize>0)) {
-    x=.readCharsWithEnc(con,BinHeader5$dimLabelsSize,encoding)
-    attr(WaveData,"dimLabels")=x[WaveHeader5$nDim>0]
-  }
+  if(any(BinHeader5$dimLabelsSize>0))
+    readBin(con,what=raw(), n = sum(BinHeader5$dimLabelsSize))
   
   # Finish up
   # Re-dimension
@@ -785,18 +794,20 @@ if(R.version$major>2) {
   return (WaveData)
 }
 
-#' Convert an Igor wave (or list of waves) loaded by read.ibw into an R time series 
-#' 
-#' Where there are multiple waves, they are assumed to be of compatible lengths 
-#' so that they can be joined together by cbind.
-#' 
+#' Convert an Igor wave (wave list) loaded by read.ibw into an R time series
+#'
+#' Where there are multiple waves, they are assumed to be of compatible lengths
+#' so that they can be joined together by \code{cbind}.
+#'
 #' @param WaveData, a wave or list of waves
 #' @param ReturnOriginalDataOnError If we can't make a time series, return
-#'  return original data (default TRUE)
-#' @return a time series or multi time series (ts, mts)
+#'   return original data (default TRUE)
+#' @return a time series or multi time series (\code{\link[stats]{ts}},
+#'   \code{mts})
 #' @author jefferis
 #' @export
 #' @importFrom stats ts
+#' @family igor-io
 WaveToTimeSeries<-function(WaveData,ReturnOriginalDataOnError=TRUE){
   if(is.list(WaveData)) {
     # process separate waves into multi wave time series
@@ -811,13 +822,13 @@ WaveToTimeSeries<-function(WaveData,ReturnOriginalDataOnError=TRUE){
   } else res
 }
 
-#' Return tsp attribute of igor wave (start, end, frequency)
+#' Return tsp attribute of Igor wave (start, end, frequency)
 #' 
 #' Note that end = (npts-1) * deltat
-#' @param wave Igor wave loaded by read.ibw or read.pxp
+#' @param wave Igor wave loaded by \code{read.ibw} or\code{read.pxp}
 #' @return numeric vector with elements start, end, frequency
 #' @author jefferis
-#' @seealso \code{tsp}
+#' @seealso \code{\link[stats]{tsp}}
 #' @export
 tsp.igorwave<-function(wave){
   bh=attr(wave,"BinHeader")
